@@ -1,0 +1,13 @@
+name: pysparklib
+channels:
+  - defaults
+dependencies:
+  - pip=19.1.1
+  - python=3.7.3
+  - setuptools=41.0.1
+  - pip:
+    - py4j==0.10.7
+    - pyspark==2.4.0
+    - pyspark-stubs==2.4.0.post2
+    - pyspark2pmml==0.5.1
+#prefix: /anaconda3/envs/pysparklib
