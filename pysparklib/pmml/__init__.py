@@ -1,7 +1,7 @@
 import json
 import time
 import uuid
-from typing import List, Any
+from typing import List
 
 from py4j.java_collections import JavaArray
 from pyspark import SparkContext
@@ -9,7 +9,7 @@ from pyspark.ml import PipelineModel
 from pyspark.sql import SparkSession, DataFrame
 from pyspark2pmml import PMMLBuilder
 
-from pysparklib.pmml.exceptions import PySparkLibError
+from pysparklib.exceptions import PySparkLibError
 
 
 class PMMLUtil:
@@ -31,16 +31,22 @@ class PMMLUtil:
                            "uid": f"PipelineModel_{pipeline_uid}"})
 
     @property
-    def stage_uids(self):
+    def stage_uids(self) -> list:
         if not self.fs.exists(self.path(self.stage_dir)):
             raise RuntimeError(f"{self.stage_dir} does not exist")
         status = self.fs.listStatus(self.path(self.stage_dir))
         return ['_'.join(file_status.getPath().toString().split("/")[-1].split('_')[1:]) for file_status in status] \
             if status else []
 
-    def save_stage(self, stage: Any, stage_order: int):
-        stage_path = f"{self.stage_dir}/{stage_order}_{stage.uid}"
-        stage_path_history = f"{self.stage_dir}/{stage_order}_{stage.uid.split('_')[0]}_*"
+    def save_stage(self, processor, stage_order: int) -> str:
+        """
+        Save sparkml pipeline stage metadata to HDFS.
+        :param processor:  Transformer, Estimator, Evaluator.
+        :param stage_order: Stage order in pipeline.
+        :return:
+        """
+        stage_path = f"{self.stage_dir}/{stage_order}_{processor.uid}"
+        stage_path_history = f"{self.stage_dir}/{stage_order}_{processor.uid.split('_')[0]}_*"
         status: JavaArray = self.fs.globStatus(self.path(stage_path_history))
         # fileStatus = self.sc._jvm.org.apache.hadoop.fs.FileStatus
         # file_status: fileStatus
@@ -50,12 +56,12 @@ class PMMLUtil:
                     if self.fs.exists(file_status.getPath()):
                         self.fs.delete(file_status.getPath())
                         print(f"Deleted history stage {file_status.getPath()}")
-            stage.write().overwrite().save(stage_path)
+            processor.write().overwrite().save(stage_path)
         except Exception as e:
             raise PySparkLibError(e)
         return stage_path
 
-    def save_pmml(self, pmml_dir: str):
+    def save_pmml(self, pmml_dir: str) -> str:
         try:
             metadata_dir = f"{self.pipeline_dir}/metadata"
             metadata_path = self.path(metadata_dir)
